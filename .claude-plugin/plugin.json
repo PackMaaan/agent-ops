@@ -1,6 +1,6 @@
 {
   "name": "agent-ops",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Composable agent skills and world-class GitHub standards, installable into any repository as a submodule",
   "author": {
     "name": "PackMaaan",

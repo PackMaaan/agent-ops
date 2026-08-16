@@ -1,0 +1,101 @@
+name: Stacked delivery plan
+description: Plan a multi-layer delivery stack and get generated stack IDs and branch names.
+title: "[Stack] "
+labels:
+  - "status: backlog"
+  - "type: enhancement"
+  - "P2"
+  - "stack: planning"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A **stack** is a chain of pull requests where each layer bases on the one
+        below it, so a large change lands as a sequence of reviewable pieces
+        rather than one unreviewable diff.
+
+        Fill this in and the Stack Plan Suggestions workflow will comment with a
+        stack ID and a branch name per layer. Edit the issue and the comment is
+        regenerated in place.
+
+  - type: dropdown
+    id: lane_type
+    attributes:
+      label: Lane type
+      description: Platform work is reusable capability; client work delivers a named outcome.
+      options:
+        - Platform lane
+        - Client lane
+    validations:
+      required: true
+
+  - type: input
+    id: topic_slug
+    attributes:
+      label: Topic slug
+      description: Short lowercase topic, used in the stack ID and every branch name.
+      placeholder: connector-dashboard
+    validations:
+      required: true
+
+  - type: input
+    id: client_code
+    attributes:
+      label: Client code
+      description: Required for the client lane; ignored for platform work.
+      placeholder: ACME
+    validations:
+      required: false
+
+  - type: input
+    id: ticket_prefix
+    attributes:
+      label: Ticket prefix
+      description: Prefix for branch names. Defaults to ENG.
+      placeholder: ENG
+    validations:
+      required: false
+
+  - type: dropdown
+    id: stack_size
+    attributes:
+      label: Stack size
+      description: How many layers do you expect? An estimate is fine — edit later to regenerate.
+      options:
+        - "2 layers"
+        - "3 layers"
+        - "4 layers"
+        - "5 layers"
+        - "6 layers"
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What is true once the whole stack has landed?
+    validations:
+      required: true
+
+  - type: textarea
+    id: layer_sketch
+    attributes:
+      label: Layer sketch
+      description: One line per layer, bottom first. Rough is fine.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: Each layer is independently reviewable and independently revertible.
+          required: true
+        - label: No layer depends on a layer above it.
+          required: true

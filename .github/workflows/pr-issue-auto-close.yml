@@ -1,0 +1,83 @@
+name: PR Issue Auto-Close
+
+# A merged PR should leave the board in the state the merge implies: the issues
+# it closed marked done, and the PR itself marked shipped. Doing this by hand is
+# the step everyone skips, so the board drifts out of sync with the branch.
+#
+# Issue references are read from the PR body. GitHub's own closing keywords
+# ("Closes #12") already close the issue; this additionally moves the status
+# label, which GitHub does not do.
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: killswitch
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: check
+        run: |
+          state=ENABLED
+          if [ -f .github/WORKFLOW_KILLSWITCH ]; then
+            state=$(tr -d '[:space:]' < .github/WORKFLOW_KILLSWITCH)
+          fi
+          if [ "$state" = "DISABLED" ]; then
+            printf 'enabled=false\n' >>"$GITHUB_OUTPUT"
+          else
+            printf 'enabled=true\n' >>"$GITHUB_OUTPUT"
+          fi
+
+  close-linked-issues:
+    name: close linked issues
+    needs: guard
+    if: needs.guard.outputs.enabled == 'true' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Move linked issues to done
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          # Passed through the environment, never interpolated into the script.
+          # Inline `${{ }}` would place the body inside the shell's quoting, so a
+          # PR description containing an apostrophe ends the quote and the step
+          # dies before closing anything — and a crafted body could run commands.
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$PR_BODY" \
+            | grep -oE '(close[sd]?|fixe?[sd]?|resolve[sd]?)[[:space:]]+#[0-9]+' \
+            | grep -oE '[0-9]+' \
+            | sort -u \
+            | while read -r issue; do
+                printf 'issue #%s -> status: done\n' "$issue"
+                gh issue edit "$issue" --repo "$REPO" \
+                  --add-label "status: done" \
+                  --remove-label "status: in-review" \
+                  --remove-label "status: ready" || true
+                gh issue close "$issue" --repo "$REPO" --reason completed || true
+              done
+
+      - name: Mark the pull request shipped
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr edit "$PR" --repo "$REPO" \
+            --add-label "status: done" \
+            --remove-label "status: in-review" || true

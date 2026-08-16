@@ -1,0 +1,70 @@
+name: PR Status Labels
+
+# Moves a PR through the same status vocabulary the issues use, so one board
+# query shows both. Ready-for-review means in review; a draft means it is not.
+#
+# Runs on `pull_request_target` because a PR opened from a fork gets a read-only
+# token on `pull_request` and cannot label itself. Nothing from the PR is checked
+# out or executed here — the only inputs are the event's own numeric fields, so
+# the elevated token never meets untrusted code.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, converted_to_draft, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: killswitch
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      # On pull_request_target this checks out the BASE branch, not the PR, so
+      # the killswitch cannot be flipped by the pull request being labelled.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: check
+        run: |
+          state=ENABLED
+          if [ -f .github/WORKFLOW_KILLSWITCH ]; then
+            state=$(tr -d '[:space:]' < .github/WORKFLOW_KILLSWITCH)
+          fi
+          if [ "$state" = "DISABLED" ]; then
+            printf 'enabled=false\n' >>"$GITHUB_OUTPUT"
+          else
+            printf 'enabled=true\n' >>"$GITHUB_OUTPUT"
+          fi
+
+  label:
+    name: apply status label
+    needs: guard
+    if: needs.guard.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Set the status label from draft state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          set -euo pipefail
+          if [ "$IS_DRAFT" = "true" ]; then
+            printf 'PR #%s is a draft -> status: ready\n' "$PR"
+            gh pr edit "$PR" --repo "$REPO" \
+              --add-label "status: ready" \
+              --remove-label "status: in-review" || true
+          else
+            printf 'PR #%s is open for review -> status: in-review\n' "$PR"
+            gh pr edit "$PR" --repo "$REPO" \
+              --add-label "status: in-review" \
+              --remove-label "status: ready" \
+              --remove-label "status: triage" || true
+          fi

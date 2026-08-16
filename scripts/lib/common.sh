@@ -11,7 +11,7 @@ set -euo pipefail
 
 # Consumed by every sourcing script, so shellcheck cannot see the use from here.
 # shellcheck disable=SC2034
-readonly AGENT_OPS_VERSION="0.1.0"
+readonly AGENT_OPS_VERSION="0.2.0"
 
 # ---------------------------------------------------------------------------
 # Paths

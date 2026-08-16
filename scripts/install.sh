@@ -179,12 +179,26 @@ render_block() {
   printf '\nAfter pulling changes: `git submodule update --init --recursive && %s/bin/agent-ops install`\n' "$AO_REL"
 }
 
-for doc in AGENTS.md CLAUDE.md; do
+# AGENTS.md is the cross-harness standard, CLAUDE.md is Claude Code's name for
+# it, and .github/copilot-instructions.md is the path GitHub Copilot reads
+# automatically. All three get the same generated block, so a repository does not
+# advertise a different capability set depending on which agent opens it.
+for doc in AGENTS.md CLAUDE.md .github/copilot-instructions.md; do
   path="$HOST/$doc"
   if [ "$DRY_RUN" -eq 1 ]; then
     would "update managed block in $doc"
     continue
   fi
+  # Only create .github/ if the host already uses it; do not impose the
+  # directory on a repository that has none.
+  case "$doc" in
+    */*)
+      if [ ! -d "$(dirname "$path")" ]; then
+        skip "$doc (no $(dirname "$doc")/ directory — run bootstrap first)"
+        continue
+      fi
+      ;;
+  esac
   render_block | ao_write_managed_block "$path"
   ok "$doc updated"
 done

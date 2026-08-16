@@ -1,0 +1,68 @@
+name: Issue Triage
+
+# Gives every new issue a status and a priority so nothing sits in an
+# unclassified state. Only fills gaps: an issue that already carries a
+# `status:` or `P?` label is left exactly as the author set it, which is what
+# makes the issue forms' own default labels authoritative.
+
+on:
+  issues:
+    types: [opened, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: killswitch
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: check
+        run: |
+          state=ENABLED
+          if [ -f .github/WORKFLOW_KILLSWITCH ]; then
+            state=$(tr -d '[:space:]' < .github/WORKFLOW_KILLSWITCH)
+          fi
+          if [ "$state" = "DISABLED" ]; then
+            printf 'enabled=false\n' >>"$GITHUB_OUTPUT"
+          else
+            printf 'enabled=true\n' >>"$GITHUB_OUTPUT"
+          fi
+
+  triage:
+    name: apply default labels
+    needs: guard
+    if: needs.guard.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Add status and priority when missing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          labels=$(gh issue view "$ISSUE" --repo "$REPO" --json labels --jq '.labels[].name')
+          printf 'current labels: %s\n' "$(printf '%s' "$labels" | tr '\n' ' ')"
+
+          add=""
+          printf '%s\n' "$labels" | grep -q '^status: ' || add="status: triage"
+          if ! printf '%s\n' "$labels" | grep -qE '^P[0-3]$'; then
+            [ -n "$add" ] && add="$add,P2" || add="P2"
+          fi
+
+          if [ -z "$add" ]; then
+            printf 'already classified — nothing to do\n'
+            exit 0
+          fi
+          printf 'adding: %s\n' "$add"
+          gh issue edit "$ISSUE" --repo "$REPO" --add-label "$add"

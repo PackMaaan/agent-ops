@@ -41,9 +41,35 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # actionlint only inspects .github/workflows, so the workflow templates
+      # that bootstrap installs into host repositories would otherwise never be
+      # checked. Copying them alongside the real ones — in the throwaway
+      # checkout, never committed — is what makes them visible to it.
+      - name: Stage the workflow templates for linting
+        run: |
+          for f in templates/github-standards/workflows/*.yml; do
+            cp "$f" ".github/workflows/zz-template-$(basename "$f")"
+          done
+          printf 'staged %d template(s)\n' \
+            "$(find .github/workflows -name 'zz-template-*' | wc -l)"
+
       - uses: docker://rhysd/actionlint:1.7.7
         with:
           args: -color
+
+  guardrail:
+    name: guardrail hook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # A guardrail that is registered but does not block is worse than none, so
+      # its behaviour is asserted rather than assumed.
+      - name: Blocks destructive commands, allows safe ones
+        run: bash tests/test_guardrail.sh
 
   lint-docs:
     name: markdown + yaml
@@ -141,7 +167,7 @@ jobs:
   ci-ok:
     name: CI
     if: always()
-    needs: [shellcheck, actionlint, lint-docs, registry, version, test]
+    needs: [shellcheck, actionlint, guardrail, lint-docs, registry, version, test]
     runs-on: ubuntu-latest
     steps:
       # Single stable check name to pin in branch protection, so adding a job

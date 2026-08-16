@@ -19,6 +19,7 @@ when a module owns them.
 | PRDs, epics, task breakdown, standups, parallel agent execution, issue close/merge | **CCPM** | `.claude/skills/ccpm/SKILL.md` |
 | Branch protection, rulesets, CODEOWNERS, auto-merge, sub-issues, merge queues, PR-blocked troubleshooting | **github-project** | `.claude/skills/github-project/SKILL.md` |
 | Standing a repository up from nothing | **this skill** | `references/bootstrap.md` |
+| PR/issue lifecycle automation, stacked delivery, the killswitch, git guardrails | **this skill** | `references/github-automation.md` |
 | Adding, updating, or removing a capability module | **this skill** | `references/module-authoring.md` |
 | The full arc from empty repo to shipped feature | **this skill** | `references/delivery-loop.md` |
 | Something is installed but not working | **this skill** | `references/troubleshooting.md` |
@@ -55,6 +56,11 @@ checkout root — typically `.agent-ops/` inside the host repository.
 .agent-ops/bin/agent-ops module list  # what is registered and at which commit
 .agent-ops/bin/agent-ops module sync  # update submodules to their branch tips
 .agent-ops/bin/agent-ops module add   # register a new capability module
+
+# Opt-in automation — acts on issues and PRs, so never on by default
+.agent-ops/bin/agent-ops bootstrap --workflows        # PR/issue lifecycle
+.agent-ops/bin/agent-ops bootstrap --stacked-delivery # stacked PR templates
+.agent-ops/bin/agent-ops bootstrap --guardrails       # destructive-git hook
 ```
 
 `doctor` is the first move whenever something looks wrong. It distinguishes
@@ -77,6 +83,13 @@ These hold regardless of which module handles a request.
    then run the remote phase of bootstrap.
 6. **Resolving a review thread means calling the GraphQL mutation**, not merely
    replying to the comment. See the github-project skill.
+7. **Events produced by `GITHUB_TOKEN` never start another workflow run.** A
+   workflow that pushes a commit or updates a branch will not trigger the checks
+   that would normally follow. Where that matters, use a PAT. See
+   `references/github-automation.md` → *the recursion guard*.
+8. **Untrusted input goes through the environment, never `${{ }}` inside a
+   `run:` block.** A PR body containing an apostrophe breaks the step; a crafted
+   one runs commands.
 
 ## Quick recognition
 
@@ -90,3 +103,7 @@ These hold regardless of which module handles a request.
 | "let's build <feature>" / "write a PRD" | Read the **ccpm** skill |
 | "why can't this PR merge?" | Read the **github-project** skill |
 | "take this from nothing to shipped" | `references/delivery-loop.md` |
+| "automate our PR/issue workflow" / "keep PRs up to date" | `references/github-automation.md` |
+| "set up stacked PRs" / "this change is too big for one PR" | `references/github-automation.md` § Stacked delivery |
+| "turn the automation off" / "the bots are misbehaving" | `references/github-automation.md` § The killswitch |
+| "stop the agent running destructive git" | `references/github-automation.md` § Guardrails |

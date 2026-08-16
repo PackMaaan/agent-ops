@@ -22,6 +22,10 @@ FORCE=0
 DO_FILES=1
 DO_LABELS=1
 DO_REMOTE=1
+DO_WORKFLOWS=0
+DO_STACKED=0
+DO_GUARDRAILS=0
+DO_COPILOT=1
 APPROVALS=1
 MERGE_STRATEGY="merge"
 SECURITY_EMAIL=""
@@ -34,13 +38,31 @@ agent-ops bootstrap — apply world-class GitHub standards to the host repositor
 USAGE
   agent-ops bootstrap [options]
 
-PHASES (all on by default)
+PHASES
+  Files, labels and remote run by default. The automation phase is opt-in
+  because it installs workflows that act on your issues and pull requests.
+
   --files-only        Only render standard files
   --labels-only       Only sync the label taxonomy
   --remote-only       Only apply repository settings + branch protection
   --no-files          Skip file rendering
   --no-labels         Skip label sync
   --no-remote         Skip every GitHub API call (offline-safe)
+  --no-copilot        Skip .github/copilot-instructions.md
+
+AUTOMATION (opt-in)
+  --workflows         Install the PR/issue lifecycle workflows:
+                        pr-auto-update        keep open PRs current with main
+                        pr-issue-auto-close   merged PR closes its linked issues
+                        pr-status-labels      PR draft state -> status label
+                        issue-triage          default status and priority labels
+                        coderabbit-to-issues  review findings become tracked issues
+                      All are gated by .github/WORKFLOW_KILLSWITCH, which is read
+                      from the default branch so a PR cannot flip it.
+  --stacked-delivery  Install the stacked-PR templates, the stacked delivery
+                      issue form, and the stack-plan suggestion workflow
+  --guardrails        Install the destructive-git PreToolUse hook and wire it
+                      into .claude/settings.json
 
 OPTIONS
   --target DIR              Host repository root (default: auto-detected)
@@ -72,11 +94,15 @@ while [ $# -gt 0 ]; do
     --security-email) SECURITY_EMAIL="${2:?--security-email needs an address}"; shift 2 ;;
     --var) EXTRA_VARS="${EXTRA_VARS}${2:?--var needs KEY=VALUE}"$'\n'; shift 2 ;;
     --files-only) DO_LABELS=0; DO_REMOTE=0; shift ;;
-    --labels-only) DO_FILES=0; DO_REMOTE=0; shift ;;
-    --remote-only) DO_FILES=0; DO_LABELS=0; shift ;;
+    --labels-only) DO_FILES=0; DO_REMOTE=0; DO_COPILOT=0; shift ;;
+    --remote-only) DO_FILES=0; DO_LABELS=0; DO_COPILOT=0; shift ;;
     --no-files) DO_FILES=0; shift ;;
     --no-labels) DO_LABELS=0; shift ;;
     --no-remote) DO_REMOTE=0; shift ;;
+    --no-copilot) DO_COPILOT=0; shift ;;
+    --workflows) DO_WORKFLOWS=1; shift ;;
+    --stacked-delivery) DO_STACKED=1; shift ;;
+    --guardrails) DO_GUARDRAILS=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; die "unknown option: $1" ;;
@@ -206,7 +232,7 @@ render() {
 }
 
 if [ "$DO_FILES" -eq 1 ]; then
-  info "phase 1/3 — standard files"
+  info "phase 1 — standard files"
 
   # Module assets first: the github-project skill owns these.
   render "SECURITY.md"                       "$GP_ASSETS/SECURITY.md.template"            "$OWN/SECURITY.md"
@@ -253,12 +279,121 @@ if [ "$DO_FILES" -eq 1 ]; then
     } >"$dep"
     ok ".github/dependabot.yml ($(printf '%s' "$ECOSYSTEMS" | tr '\n' ' '))"
   fi
+
+  # GitHub Copilot reads this path automatically; other harnesses read AGENTS.md.
+  # `agent-ops install` keeps a managed block in both, so the two stay in step.
+  [ "$DO_COPILOT" -eq 1 ] && render ".github/copilot-instructions.md" "$OWN/copilot-instructions.md"
+fi
+
+# --- automation -------------------------------------------------------------
+
+if [ "$DO_WORKFLOWS" -eq 1 ] || [ "$DO_STACKED" -eq 1 ]; then
+  info "automation — workflows and templates"
+
+  # copy <dest-relative> <source> — verbatim, no {{VAR}} substitution. Workflow
+  # files must stay byte-identical to what CI lints in this repository.
+  copy() {
+    local dest_rel="$1" src="$2" dest="$HOST/$1"
+    [ -f "$src" ] || { warn "$dest_rel: source missing — skipped"; return 0; }
+    if [ -e "$dest" ] && [ "$FORCE" -eq 0 ]; then skip "$dest_rel (exists)"; return 0; fi
+    if [ "$DRY_RUN" -eq 1 ]; then would "install $dest_rel"; return 0; fi
+    mkdir -p "$(dirname "$dest")"
+    cp "$src" "$dest"
+    ok "$dest_rel"
+  }
+
+  if [ "$DO_WORKFLOWS" -eq 1 ]; then
+    # The killswitch must exist before anything that reads it, or every guard job
+    # falls through to its ENABLED default on the first run.
+    copy ".github/WORKFLOW_KILLSWITCH" "$OWN/WORKFLOW_KILLSWITCH"
+
+    copy ".github/workflows/pr-auto-update.yml"      "$OWN/workflows/pr-auto-update.yml"
+    copy ".github/workflows/pr-issue-auto-close.yml" "$OWN/workflows/pr-issue-auto-close.yml"
+    copy ".github/workflows/pr-status-labels.yml"    "$OWN/workflows/pr-status-labels.yml"
+    copy ".github/workflows/issue-triage.yml"        "$OWN/workflows/issue-triage.yml"
+    copy ".github/workflows/coderabbit-to-issues.yml" "$OWN/workflows/coderabbit-to-issues.yml"
+    copy ".github/scripts/coderabbit-to-issues.sh"   "$OWN/scripts/coderabbit-to-issues.sh"
+    [ "$DRY_RUN" -eq 0 ] && [ -f "$HOST/.github/scripts/coderabbit-to-issues.sh" ] \
+      && chmod +x "$HOST/.github/scripts/coderabbit-to-issues.sh"
+
+    warn "these workflows need the label taxonomy — run the labels phase too"
+  fi
+
+  if [ "$DO_STACKED" -eq 1 ]; then
+    copy ".github/WORKFLOW_KILLSWITCH" "$OWN/WORKFLOW_KILLSWITCH"
+    copy ".github/workflows/stack-plan-suggestions.yml" "$OWN/workflows/stack-plan-suggestions.yml"
+    copy ".github/ISSUE_TEMPLATE/stacked_delivery_plan.yml" "$OWN/ISSUE_TEMPLATE/stacked_delivery_plan.yml"
+    for v in platform-stack-full platform-stack-minimal client-stack-full client-stack-minimal; do
+      copy ".github/PULL_REQUEST_TEMPLATE/$v.md" "$OWN/PULL_REQUEST_TEMPLATE/$v.md"
+    done
+    # GitHub uses the directory only when a template is named in the compare URL,
+    # so the root template becomes the chooser that documents how.
+    if [ -f "$HOST/.github/PULL_REQUEST_TEMPLATE.md" ] && [ "$FORCE" -eq 0 ]; then
+      skip ".github/PULL_REQUEST_TEMPLATE.md (exists — pass --force to replace with the stacked chooser)"
+    else
+      copy ".github/PULL_REQUEST_TEMPLATE.md" "$OWN/PULL_REQUEST_TEMPLATE_stacked.md"
+    fi
+  fi
+fi
+
+# --- guardrails -------------------------------------------------------------
+
+if [ "$DO_GUARDRAILS" -eq 1 ]; then
+  info "guardrails — destructive-git PreToolUse hook"
+  hook_src="$AO_TEMPLATES/agent-guardrails/block-dangerous-git.sh"
+  hook_dest="$HOST/.claude/hooks/block-dangerous-git.sh"
+  settings="$HOST/.claude/settings.json"
+
+  if [ ! -f "$hook_src" ]; then
+    warn "guardrail source missing at $hook_src"
+  elif [ "$DRY_RUN" -eq 1 ]; then
+    would "install .claude/hooks/block-dangerous-git.sh and register it in .claude/settings.json"
+  else
+    mkdir -p "$HOST/.claude/hooks"
+    cp "$hook_src" "$hook_dest"
+    chmod +x "$hook_dest"
+    ok ".claude/hooks/block-dangerous-git.sh"
+
+    # Prove it blocks before wiring it in. A guardrail registered but broken is
+    # worse than none: it reads as protection while allowing everything.
+    if printf '%s' '{"tool_input":{"command":"git push origin main"}}' \
+         | bash "$hook_dest" >/dev/null 2>&1; then
+      fail "guardrail did not block a test command — not registering it"
+    else
+      ok "guardrail verified (blocks 'git push origin main' with exit 2)"
+
+      # shellcheck disable=SC2016  # $CLAUDE_PROJECT_DIR is expanded by the harness, not here
+      hook_cmd='$CLAUDE_PROJECT_DIR/.claude/hooks/block-dangerous-git.sh'
+      if ! have jq; then
+        warn "jq not installed — add this to .claude/settings.json by hand:"
+        cat "$AO_TEMPLATES/agent-guardrails/settings-hook.json" >&2
+      elif [ -f "$settings" ] && grep -qF 'block-dangerous-git.sh' "$settings"; then
+        skip ".claude/settings.json already registers the hook"
+      else
+        [ -f "$settings" ] || printf '{}\n' >"$settings"
+        if jq -e . "$settings" >/dev/null 2>&1; then
+          tmp="$settings.tmp"
+          jq --arg cmd "$hook_cmd" '
+            .hooks //= {} |
+            .hooks.PreToolUse //= [] |
+            .hooks.PreToolUse += [{
+              matcher: "Bash",
+              hooks: [{ type: "command", command: $cmd }]
+            }]
+          ' "$settings" >"$tmp" && mv "$tmp" "$settings"
+          ok ".claude/settings.json registers the hook"
+        else
+          warn ".claude/settings.json is not valid JSON — add the hook by hand"
+        fi
+      fi
+    fi
+  fi
 fi
 
 # --- labels -----------------------------------------------------------------
 
 if [ "$DO_LABELS" -eq 1 ]; then
-  info "phase 2/3 — label taxonomy"
+  info "phase 2 — label taxonomy"
   if [ -z "$SLUG" ]; then
     skip "no origin remote — labels skipped"
   elif ! have gh; then
@@ -289,7 +424,7 @@ fi
 # --- remote settings + branch protection ------------------------------------
 
 if [ "$DO_REMOTE" -eq 1 ]; then
-  info "phase 3/3 — repository settings and branch protection"
+  info "phase 3 — repository settings and branch protection"
 
   if ! have gh; then
     warn "gh not installed — remote phase skipped"

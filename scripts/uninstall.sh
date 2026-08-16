@@ -91,7 +91,7 @@ done <<EOF
 $DESTS
 EOF
 
-for doc in AGENTS.md CLAUDE.md; do
+for doc in AGENTS.md CLAUDE.md .github/copilot-instructions.md; do
   path="$HOST/$doc"
   [ -f "$path" ] || continue
   grep -qF "$AO_BLOCK_BEGIN" "$path" || continue

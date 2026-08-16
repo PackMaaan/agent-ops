@@ -1,0 +1,107 @@
+name: PR Auto Update
+
+# Conflicts come from divergence windows: the longer a branch trails the default
+# branch, the bigger the eventual collision. Updating every open PR branch on each
+# push to main keeps that window one merge wide — a conflict surfaces while both
+# sides are still small, on the PR that caused it, instead of accumulating.
+#
+# Two behaviours worth knowing before you rely on this:
+#
+# 1. A PR GitHub reports CONFLICTING cannot be auto-updated. It gets one comment
+#    (deduplicated by an HTML marker) naming the local resolution recipe, rather
+#    than being silently skipped.
+#
+# 2. Branch updates pushed with the default GITHUB_TOKEN DO NOT re-trigger the
+#    PR's own checks. This is GitHub's recursion guard: events produced by
+#    GITHUB_TOKEN never start another workflow run. The PR will show stale checks
+#    until a human pushes to it. Put a PAT with `repo` scope in the
+#    PR_AUTOUPDATE_TOKEN secret to lift that.
+#
+# Killswitch: set .github/WORKFLOW_KILLSWITCH to DISABLED to stop this without
+# deleting the file. It is read from the default branch, so a PR cannot flip it.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-auto-update
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: killswitch
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: check
+        run: |
+          state=ENABLED
+          if [ -f .github/WORKFLOW_KILLSWITCH ]; then
+            state=$(tr -d '[:space:]' < .github/WORKFLOW_KILLSWITCH)
+          fi
+          printf 'killswitch: %s\n' "$state"
+          if [ "$state" = "DISABLED" ]; then
+            printf 'enabled=false\n' >>"$GITHUB_OUTPUT"
+          else
+            printf 'enabled=true\n' >>"$GITHUB_OUTPUT"
+          fi
+
+  update-open-prs:
+    name: update open PR branches
+    needs: guard
+    if: needs.guard.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Update every open PR branch against the base
+        env:
+          # Falls back to GITHUB_TOKEN, which updates branches but does not
+          # re-trigger their checks. See the header.
+          GH_TOKEN: ${{ secrets.PR_AUTOUPDATE_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          marker='<!-- pr-auto-update-conflict -->'
+
+          gh pr list --repo "$REPO" --state open --base main \
+            --json number,isDraft,mergeable \
+            --jq '.[] | select(.isDraft | not) | [.number, .mergeable] | @tsv' |
+          while IFS=$'\t' read -r num mergeable; do
+            if [ "$mergeable" = "CONFLICTING" ]; then
+              if gh pr view "$num" --repo "$REPO" --json comments \
+                   --jq '.comments[].body' | grep -qF "$marker"; then
+                printf '#%s: conflicting, already commented\n' "$num"
+              else
+                gh pr comment "$num" --repo "$REPO" --body "$marker
+          This branch conflicts with \`main\` and cannot be updated automatically. Resolve it locally:
+
+          \`\`\`bash
+          git fetch origin
+          git merge origin/main
+          # resolve, run your checks, then:
+          git push origin HEAD
+          \`\`\`
+          "
+                printf '#%s: conflicting, commented\n' "$num"
+              fi
+            else
+              # HTTP 422 "no new commits" means the branch is already current,
+              # which is success here rather than an error.
+              if gh api -X PUT "repos/$REPO/pulls/$num/update-branch" >/dev/null 2>&1; then
+                printf '#%s: updated\n' "$num"
+              else
+                printf '#%s: already current\n' "$num"
+              fi
+            fi
+          done

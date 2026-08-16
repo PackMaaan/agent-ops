@@ -1,0 +1,132 @@
+name: Stack Plan Suggestions
+
+# Turns a "Stacked Delivery Plan" issue into concrete, copy-pasteable stack IDs
+# and branch names, so every layer of a stack is named the same way by everyone.
+#
+# Only fires on issues carrying `stack: planning`, which the issue form applies
+# automatically. Any other issue is ignored.
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: killswitch
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: check
+        run: |
+          state=ENABLED
+          if [ -f .github/WORKFLOW_KILLSWITCH ]; then
+            state=$(tr -d '[:space:]' < .github/WORKFLOW_KILLSWITCH)
+          fi
+          if [ "$state" = "DISABLED" ]; then
+            printf 'enabled=false\n' >>"$GITHUB_OUTPUT"
+          else
+            printf 'enabled=true\n' >>"$GITHUB_OUTPUT"
+          fi
+
+  suggest:
+    name: post stack IDs and branch names
+    needs: guard
+    if: >-
+      needs.guard.outputs.enabled == 'true' &&
+      contains(join(github.event.issue.labels.*.name, ','), 'stack: planning')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Derive and post the plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          # Environment, not interpolation: an issue body is untrusted input.
+          BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          marker='<!-- stack-plan-suggestions -->'
+
+          # Issue *forms* render as "### Field name" followed by a blank line and
+          # the value, so each field is read by its heading rather than by order.
+          field() {
+            printf '%s' "$BODY" | awk -v want="### $1" '
+              $0 == want { getline; while ($0 ~ /^[[:space:]]*$/) getline; print; exit }
+            ' | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+          }
+
+          lane=$(field "Lane type")
+          topic=$(field "Topic slug")
+          client=$(field "Client code")
+          prefix=$(field "Ticket prefix")
+          size=$(field "Stack size")
+
+          # Normalise: lowercase, non-alphanumerics to dashes, no repeats or edges.
+          slug() {
+            printf '%s' "$1" | tr '[:upper:]' '[:lower:]' \
+              | sed 's/[^a-z0-9]\{1,\}/-/g; s/^-//; s/-$//'
+          }
+
+          topic=$(slug "${topic:-untitled}")
+          [ -n "$topic" ] || topic=untitled
+          layers=$(printf '%s' "${size:-3}" | grep -oE '[0-9]+' | head -1)
+          [ -n "$layers" ] || layers=3
+          [ "$layers" -le 12 ] 2>/dev/null || layers=12
+
+          month=$(date -u +%Y-%m)
+          case "$lane" in
+            Client*) stack_id="CLIENT-$(slug "${client:-client}")-${month}-${topic}" ;;
+            *)       stack_id="PLATFORM-${month}-${topic}" ;;
+          esac
+
+          ticket_prefix=$(printf '%s' "${prefix:-ENG}" | tr '[:lower:]' '[:upper:]' \
+            | sed 's/[^A-Z0-9]//g')
+          [ -n "$ticket_prefix" ] || ticket_prefix=ENG
+
+          {
+            printf '%s\n' "$marker"
+            printf '## Suggested stack plan\n\n'
+            printf "**Stack ID:** \`%s\`\n\n" "$stack_id"
+            printf 'Branch per layer — each one bases on the layer below it:\n\n'
+            printf '| Layer | Branch | Base |\n|---|---|---|\n'
+            i=1
+            prev="main"
+            while [ "$i" -le "$layers" ]; do
+              branch="feat/${ticket_prefix}-$(printf '%03d' "$i")-${topic}-l${i}"
+              printf "| %s of %s | \`%s\` | \`%s\` |\n" "$i" "$layers" "$branch" "$prev"
+              prev="$branch"
+              i=$((i + 1))
+            done
+            printf '\n**Merge order:** bottom to top. A layer merges only after the one below it lands.\n\n'
+            printf 'Open each PR with the matching template:\n\n'
+            case "$lane" in
+              Client*) printf -- "- \`?template=client-stack-full.md\` (or \`client-stack-minimal.md\`)\n" ;;
+              *)       printf -- "- \`?template=platform-stack-full.md\` (or \`platform-stack-minimal.md\`)\n" ;;
+            esac
+            printf '\n<sub>Regenerated whenever this issue is edited.</sub>\n'
+          } >/tmp/plan.md
+
+          # One comment, updated in place, rather than a new one on every edit.
+          existing=$(gh issue view "$ISSUE" --repo "$REPO" \
+            --json comments --jq \
+            "[.comments[] | select(.body | contains(\"$marker\"))] | .[0].url // empty")
+
+          if [ -n "$existing" ]; then
+            comment_id=${existing##*-}
+            gh api --method PATCH "repos/$REPO/issues/comments/$comment_id" \
+              -F body=@/tmp/plan.md >/dev/null
+            printf 'updated existing plan comment\n'
+          else
+            gh issue comment "$ISSUE" --repo "$REPO" --body-file /tmp/plan.md
+            printf 'posted new plan comment\n'
+          fi

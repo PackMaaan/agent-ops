@@ -106,6 +106,34 @@ Pinning guessed names is the most common cause of permanently unmergeable PRs.
 
 ---
 
+## Opt-in automation
+
+None of this is installed by the default `bootstrap` run — every piece acts on
+your issues and pull requests.
+
+```bash
+agent-ops bootstrap --labels-only        # the workflows need these labels first
+agent-ops bootstrap --workflows          # PR/issue lifecycle
+agent-ops bootstrap --stacked-delivery   # stacked PR templates + planning
+agent-ops bootstrap --guardrails         # destructive-git PreToolUse hook
+agent-ops bootstrap --workflows --dry-run
+```
+
+Everything installed by `--workflows` and `--stacked-delivery` is gated by
+`.github/WORKFLOW_KILLSWITCH`. Set it to `DISABLED` and commit to stop all of it
+at once, without deleting anything:
+
+```bash
+printf 'DISABLED\n' > .github/WORKFLOW_KILLSWITCH
+```
+
+It is read from the default branch, so a pull request cannot flip it.
+
+Full detail, including the traps: the `agent-ops` skill's
+[`references/github-automation.md`](../skills/agent-ops/references/github-automation.md).
+
+---
+
 ## Harness destinations
 
 | Flag | Directory |

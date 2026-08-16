@@ -14,8 +14,23 @@
   { "name": "good first issue","color": "7057ff", "description": "Well-scoped entry point for new contributors" },
   { "name": "help wanted",     "color": "008672", "description": "Maintainers would welcome a contribution here" },
   { "name": "skip-changelog",  "color": "ededed", "description": "Excluded from generated release notes" },
-  { "name": "epic",            "color": "3e4b9e", "description": "CCPM epic — parent of a task tree" },
-  { "name": "task",            "color": "5319e7", "description": "CCPM task — child of an epic" },
-  { "name": "parallel",        "color": "1d76db", "description": "Safe to execute concurrently with sibling tasks" },
-  { "name": "agent-ops",       "color": "0e8a16", "description": "Agent Ops tooling, modules, or bootstrap" }
+
+  { "name": "status: triage",    "color": "fbca04", "description": "Board: not yet classified" },
+  { "name": "status: backlog",   "color": "c5def5", "description": "Board: accepted, not started" },
+  { "name": "status: ready",     "color": "0e8a16", "description": "Board: ready to pick up, or PR still in draft" },
+  { "name": "status: in-review", "color": "1d76db", "description": "Board: work in flight or PR open for review" },
+  { "name": "status: done",      "color": "5319e7", "description": "Board: shipped" },
+
+  { "name": "P0", "color": "b60205", "description": "Priority: drop everything" },
+  { "name": "P1", "color": "d93f0b", "description": "Priority: this sprint" },
+  { "name": "P2", "color": "fbca04", "description": "Priority: normal (default)" },
+  { "name": "P3", "color": "c2e0c6", "description": "Priority: someday" },
+
+  { "name": "stack: planning", "color": "3e4b9e", "description": "Stacked delivery plan — drives stack ID and branch suggestions" },
+  { "name": "coderabbit",      "color": "d4c5f9", "description": "Filed from a CodeRabbit review finding" },
+
+  { "name": "epic",       "color": "3e4b9e", "description": "CCPM epic — parent of a task tree" },
+  { "name": "task",       "color": "5319e7", "description": "CCPM task — child of an epic" },
+  { "name": "parallel",   "color": "1d76db", "description": "Safe to execute concurrently with sibling tasks" },
+  { "name": "agent-ops",  "color": "0e8a16", "description": "Agent Ops tooling, modules, or bootstrap" }
 ]

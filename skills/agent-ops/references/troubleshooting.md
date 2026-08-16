@@ -159,11 +159,22 @@ changelog.
 `pull_request_target` workflows ran on the Dependabot branch, but no
 `pull_request` run was ever *created* — not queued, not blocked, absent. The
 same workflows fire normally on a human-authored PR from a branch in the same
-repository, so the workflow configuration is not the problem. Closing and
-reopening the PR did not produce one either.
+repository, so the workflow configuration is not the problem.
+
+**The mechanism is GitHub's recursion guard: events produced by `GITHUB_TOKEN`
+never start another workflow run.** When Dependabot runs on Actions runners, the
+push that creates its branch is made with that token, so no `pull_request` run
+follows. `pull_request_target` is unaffected because it keys off the base branch.
+The same guard is why a workflow that pushes to a PR branch does not re-run that
+PR's checks — see `github-automation.md` → *the recursion guard*.
 
 The consequence is concrete: if branch protection requires status checks, a
 Dependabot PR can never satisfy them and will sit indefinitely. Pick one:
+
+- **Give the automation a PAT.** A Personal Access Token with `repo` scope is
+  not `GITHUB_TOKEN`, so events it produces do trigger workflows. This is what
+  `PR_AUTOUPDATE_TOKEN` exists for in the `pr-auto-update` workflow; a scheduled
+  workflow that touches Dependabot branches with a PAT has the same effect.
 
 - **Merge bot PRs with an admin bypass** after reviewing the diff. Workable for
   a solo maintainer, and what this repository does. Keep `enforce_admins: false`

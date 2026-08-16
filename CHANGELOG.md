@@ -11,6 +11,68 @@ pinned SHAs for each release.
 
 ## [Unreleased]
 
+## 0.2.0
+
+Adds an opt-in GitHub automation layer, ported and generalised from
+[PackMaaan/claude-copilot-skills](https://github.com/PackMaaan/claude-copilot-skills).
+Nothing here is enabled by default: every piece acts on issues and pull requests,
+so it is requested explicitly or not installed.
+
+### Added
+
+- **`agent-ops bootstrap --workflows`** installs five PR/issue lifecycle
+  workflows into the host repository:
+  - `pr-auto-update` — keeps every open PR branch current with the base, so a
+    conflict surfaces while both sides are still small; comments once, with a
+    resolution recipe, on branches it cannot update
+  - `pr-issue-auto-close` — a merged PR moves its linked issues to `status: done`
+    and marks itself shipped
+  - `pr-status-labels` — draft state drives the PR's status label
+  - `issue-triage` — fills missing status and priority labels, never overwrites
+  - `coderabbit-to-issues` — CodeRabbit findings become tracked issues and close
+    themselves when their review thread resolves
+- **A killswitch that is actually wired.** `.github/WORKFLOW_KILLSWITCH` gates
+  every installed workflow through a `guard` job. Read from the default branch,
+  so a pull request cannot flip it. Absent means enabled.
+- **`--stacked-delivery`** installs four stacked-PR templates (platform and
+  client lanes, full and minimal), a chooser as the root PR template, the
+  stacked delivery issue form, and `stack-plan-suggestions` — which comments on
+  any `stack: planning` issue with a generated stack ID and one branch name per
+  layer, regenerated in place on edit.
+- **`--guardrails`** installs a destructive-git `PreToolUse` hook and registers
+  it in `.claude/settings.json`. It classifies every segment of a compound
+  command, so `true; git push` is blocked rather than waved through, and
+  bootstrap proves it blocks before wiring it in.
+- **`bash templates/.../coderabbit-to-issues.sh`** — a dependency-free bash and
+  GraphQL implementation of the filing and reconciliation logic, with a dry run
+  by default.
+- **GitHub Copilot support.** `agent-ops install` now writes its managed block
+  into `.github/copilot-instructions.md` alongside `AGENTS.md` and `CLAUDE.md`,
+  so a repository advertises the same capabilities whichever agent opens it.
+  `bootstrap` renders the file; `--no-copilot` opts out.
+- **Board label vocabulary** — `status: triage|backlog|ready|in-review|done`,
+  `P0`–`P3`, `stack: planning`, `coderabbit`. The type axis deliberately reuses
+  the existing `bug`/`enhancement`/`chore` labels, because `.github/release.yml`
+  already groups the changelog by exactly those names.
+- **`skills/agent-ops/references/github-automation.md`** — the routing target
+  for automation questions, including the traps: `pull_request_review_thread` is
+  a webhook event and not a workflow trigger (an unknown `on:` key stops the
+  whole file loading), the `GITHUB_TOKEN` recursion guard, untrusted input
+  belonging in `env:` rather than `${{ }}`, and concurrency as duplicate
+  prevention.
+- CI now lints the workflow templates with actionlint by staging them where it
+  looks, and asserts the guardrail's behaviour on 31 cases.
+
+### Changed
+
+- `troubleshooting.md` now names the **mechanism** behind Dependabot PRs never
+  receiving a `pull_request` run, which 0.1.0 could only describe: events
+  produced by `GITHUB_TOKEN` never start another workflow run, so a bot whose
+  branch push uses that token gets no CI. A PAT is the remedy, and is now listed
+  first among the workarounds.
+- This repository adopts `pr-auto-update`, `pr-issue-auto-close`,
+  `pr-status-labels`, `issue-triage` and the killswitch on itself.
+
 ## 0.1.0
 
 Initial release.

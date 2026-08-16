@@ -77,6 +77,40 @@ where they exist, and only supplies what the module does not cover — issue
 config. Branch protection is delegated to the module's own idempotent,
 drift-detecting script rather than reimplemented.
 
+### An opt-in GitHub automation layer
+
+Nothing below is on by default — it all acts on your issues and pull requests,
+so you ask for it explicitly.
+
+```bash
+agent-ops bootstrap --workflows          # PR/issue lifecycle
+agent-ops bootstrap --stacked-delivery   # stacked PR templates + planning
+agent-ops bootstrap --guardrails         # destructive-git hook
+```
+
+| Workflow | What it does |
+|---|---|
+| `pr-auto-update` | Keeps every open PR current with the base, so conflicts surface small |
+| `pr-issue-auto-close` | A merged PR moves its linked issues to `status: done` |
+| `pr-status-labels` | Draft state drives the PR's status label |
+| `issue-triage` | Fills missing status/priority labels, never overwrites |
+| `coderabbit-to-issues` | Review findings become tracked issues, closed when the thread resolves |
+
+All five are gated by `.github/WORKFLOW_KILLSWITCH` — one file, read from the
+default branch so a PR cannot flip it, that stops every automation at once.
+
+**Stacked delivery** adds four PR templates (platform/client × full/minimal), an
+issue form, and a workflow that comments a generated stack ID and one branch name
+per layer. **Guardrails** install a `PreToolUse` hook that refuses destructive git
+— checking every segment, so `true; git push` is blocked rather than waved
+through, and proving it blocks before wiring itself in.
+
+### Works with Copilot too
+
+`install` writes its managed block into `.github/copilot-instructions.md`
+alongside `AGENTS.md` and `CLAUDE.md`, so the repository advertises the same
+capabilities whichever agent opens it.
+
 ### A registry designed to grow
 
 `registry/modules.json` is schema-validated in CI, and CI fails if it and
@@ -149,6 +183,10 @@ agent-ops module list        Show the registry and pinned revisions
 agent-ops module add         Register a new capability module
 agent-ops module remove      Deregister a module and drop its submodule
 agent-ops module sync        Update submodules to their tracked branch tips
+
+agent-ops bootstrap --workflows         Install the PR/issue automation
+agent-ops bootstrap --stacked-delivery  Install stacked-PR templates + planning
+agent-ops bootstrap --guardrails        Install the destructive-git hook
 ```
 
 Every command supports `--help`. `install`, `uninstall`, `bootstrap`,
@@ -174,8 +212,10 @@ agent-ops/
 │   ├── ccpm/
 │   └── github-project/
 ├── skills/agent-ops/          the routing meta-skill
-├── templates/github-standards/  only what the modules do not already ship
-├── tests/                     72 assertions, no test framework dependency
+├── templates/
+│   ├── github-standards/      files, workflows and labels for host repos
+│   └── agent-guardrails/      the destructive-git PreToolUse hook
+├── tests/                     143 assertions, no test framework dependency
 └── docs/
 ```
 
