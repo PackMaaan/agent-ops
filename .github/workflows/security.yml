@@ -62,9 +62,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The gitleaks *action* scans an incremental range derived from the push
+      # event, which is `<sha>^..<sha>` — unresolvable when the range includes a
+      # root commit, so it fails on a repository's first push. Running the
+      # pinned image directly scans the full history instead: no edge case, no
+      # licence phone-home, and the version is visible in the diff.
+      - name: gitleaks (full history)
+        uses: docker://zricethezav/gitleaks:v8.29.1
+        with:
+          args: detect --source=/github/workspace --redact --no-banner --verbose --exit-code=1
 
   permissions-audit:
     name: submodule integrity
