@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PackMaaan/agent-ops/registry/schema/modules.schema.json",
+  "title": "Agent Ops module registry",
+  "description": "Declarative inventory of the capability modules Agent Ops installs into a host repository.",
+  "type": "object",
+  "required": ["registryVersion", "modules"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "registryVersion": { "type": "integer", "const": 1 },
+    "modules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/module" }
+    }
+  },
+  "$defs": {
+    "module": {
+      "type": "object",
+      "required": ["id", "name", "kind", "path", "enabled", "skills"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Stable identifier, also used as the CLI selector."
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string" },
+        "kind": {
+          "enum": ["builtin", "submodule"],
+          "description": "'builtin' ships inside this repo; 'submodule' is a pinned git submodule."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path relative to the Agent Ops root. '.' for builtin modules."
+        },
+        "url": { "type": "string", "format": "uri" },
+        "branch": { "type": "string" },
+        "upstream": { "type": "string", "format": "uri" },
+        "enabled": { "type": "boolean" },
+        "license": { "type": "string" },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "uniqueItems": true
+        },
+        "skills": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/skill" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "submodule" } } },
+          "then": { "required": ["url", "branch"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "builtin" } } },
+          "then": { "properties": { "path": { "const": "." } } }
+        }
+      ]
+    },
+    "skill": {
+      "type": "object",
+      "required": ["name", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Directory name created in the host's skills directory."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to the skill directory, relative to the module path. Must contain SKILL.md."
+        }
+      }
+    }
+  }
+}

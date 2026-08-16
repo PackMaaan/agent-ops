@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege by default; jobs opt in to more where they need it.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Lint every shell script we own
+        run: |
+          # Deliberately excludes modules/ — those are upstream's to lint.
+          mapfile -t files < <(
+            find bin scripts tests -type f \( -name '*.sh' -o -name 'agent-ops' \) | sort
+          )
+          printf 'checking %d file(s)\n' "${#files[@]}"
+          # -x follows the `# shellcheck source=` directives into lib/common.sh
+          shellcheck -x --source-path=SCRIPTDIR --severity=style --format=gcc "${files[@]}"
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: -color
+
+  lint-docs:
+    name: markdown + yaml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - uses: DavidAnson/markdownlint-cli2-action@992badcdf24e3b8eb7e87ff9287fe931bcb00c6e # v20
+        with:
+          globs: |
+            **/*.md
+            !modules/**
+            !.github/ISSUE_TEMPLATE/**
+
+      - name: yamllint
+        run: |
+          pipx install yamllint
+          yamllint --strict .
+
+  registry:
+    name: module registry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Validate against the JSON schema
+        run: |
+          pipx install check-jsonschema
+          check-jsonschema \
+            --schemafile registry/schema/modules.schema.json \
+            registry/modules.json
+
+      - name: Registry and .gitmodules must agree
+        run: bash tests/test_registry.sh
+
+      - name: Submodule pointers must be reachable on their tracked branch
+        run: |
+          status=0
+          while IFS=$'\t' read -r id path branch; do
+            sha=$(git -C "$path" rev-parse HEAD)
+            url=$(git config -f .gitmodules --get "submodule.$path.url")
+            if git -C "$path" merge-base --is-ancestor "$sha" "origin/$branch" 2>/dev/null; then
+              printf '  ok   %-18s %s on origin/%s\n' "$id" "${sha:0:7}" "$branch"
+            else
+              printf '  FAIL %-18s %s is not an ancestor of origin/%s (%s)\n' \
+                "$id" "${sha:0:7}" "$branch" "$url"
+              status=1
+            fi
+          done < <(
+            jq -r '.modules[] | select(.kind == "submodule")
+                   | [.id, .path, .branch] | @tsv' registry/modules.json
+          )
+          exit "$status"
+
+  version:
+    name: version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - run: bash scripts/check-version.sh
+
+  test:
+    name: tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS runs bash 3.2, which is the constraint the scripts are written
+        # against. Losing this leg means losing that guarantee.
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Record the bash version under test
+        run: bash --version | head -1
+
+      - name: Configure git for the throwaway repositories
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+
+      - run: bash tests/run.sh
+
+  ci-ok:
+    name: CI
+    if: always()
+    needs: [shellcheck, actionlint, lint-docs, registry, version, test]
+    runs-on: ubuntu-latest
+    steps:
+      # Single stable check name to pin in branch protection, so adding a job
+      # above never requires touching the protection rules. The results go
+      # through the environment rather than inline interpolation.
+      - name: Fail if any dependency failed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          printf 'results: %s\n' "$RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              printf 'a required job did not succeed\n' >&2
+              exit 1
+            fi
+          done

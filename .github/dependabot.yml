@@ -1,0 +1,30 @@
+# Only github-actions and gitsubmodule apply here — Agent Ops has no package
+# manager of its own by design.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "ci", "automated"]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Submodule bumps are supply-chain events. They are raised as individual PRs
+  # so each pinned revision change gets its own review, and they are NOT
+  # auto-merged — auto-merge-deps.yml only handles minor/patch dependency PRs,
+  # and a submodule bump has no semver to reason about.
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "automated"]
+    commit-message:
+      prefix: "chore(modules)"

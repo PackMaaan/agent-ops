@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.2.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: publish release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Resolve the tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag="${INPUT_TAG:-${GITHUB_REF#refs/tags/}}"
+          printf 'tag=%s\n' "$tag" >>"$GITHUB_OUTPUT"
+          printf 'version=%s\n' "${tag#v}" >>"$GITHUB_OUTPUT"
+
+      - name: The tag must match the declared version
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: bash scripts/check-version.sh --expect "$VERSION"
+
+      - name: The test suite must pass at the tagged commit
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+          bash tests/run.sh
+
+      - name: Record the pinned module revisions
+        id: modules
+        run: |
+          # shellcheck disable=SC2016  # backticks are markdown code spans
+          {
+            printf '### Pinned modules\n\n'
+            printf '| Module | Revision | Source |\n|---|---|---|\n'
+            while IFS=$'\t' read -r id path url; do
+              sha=$(git -C "$path" rev-parse HEAD)
+              printf '| `%s` | [`%s`](%s/commit/%s) | %s |\n' \
+                "$id" "${sha:0:9}" "${url%.git}" "$sha" "${url%.git}"
+            done < <(
+              jq -r '.modules[] | select(.kind == "submodule")
+                     | [.id, .path, .url] | @tsv' registry/modules.json
+            )
+          } >modules.md
+          cat modules.md
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            --notes-file modules.md \
+            --verify-tag

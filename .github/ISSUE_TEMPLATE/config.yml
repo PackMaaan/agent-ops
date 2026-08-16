@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/PackMaaan/agent-ops/discussions
+    about: Ask questions and float ideas in Discussions — issues are for actionable, confirmed work.
+  - name: Report a security vulnerability
+    url: https://github.com/PackMaaan/agent-ops/security/advisories/new
+    about: Please report vulnerabilities privately. Do not open a public issue.
+  - name: Issue with the CCPM module
+    url: https://github.com/automazeio/ccpm/issues
+    about: Bugs in the CCPM skill itself belong upstream.
+  - name: Issue with the github-project module
+    url: https://github.com/netresearch/github-project-skill/issues
+    about: Bugs in the GitHub Project skill itself belong upstream.

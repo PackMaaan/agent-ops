@@ -1,0 +1,17 @@
+# Normalise line endings across platforms.
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.webp binary
+*.pdf  binary
+*.zip  binary
+
+# Keep lockfiles out of diffs and language statistics.
+*.lock          linguist-generated=true -diff
+package-lock.json linguist-generated=true -diff

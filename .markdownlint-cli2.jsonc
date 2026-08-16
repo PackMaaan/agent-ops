@@ -1,0 +1,34 @@
+{
+  "config": {
+    "default": true,
+
+    // Prose wraps at 100 in this repo, but tables, links and code fences
+    // legitimately exceed it. Enforcing a hard limit here produces churn
+    // without improving readability.
+    "MD013": false,
+
+    // Duplicate headings are fine when nested under different parents
+    // (every reference doc has its own "Next" / "Options" section).
+    "MD024": { "siblings_only": true },
+
+    // The first line of several docs is a comment or frontmatter, not an H1.
+    "MD041": false,
+
+    // Inline HTML is used deliberately for the managed-block markers and for
+    // template comments.
+    "MD033": false,
+
+    // Bare URLs appear inside code fences in the CLI help output.
+    "MD034": false,
+
+    // Compact table delimiters (`|---|---|`) are used throughout and render
+    // identically. Padding them adds churn without improving the source.
+    "MD060": false
+  },
+  "globs": ["**/*.md"],
+  "ignores": [
+    "modules/**",
+    "node_modules/**",
+    ".github/ISSUE_TEMPLATE/**"
+  ]
+}

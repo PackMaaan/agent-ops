@@ -1,0 +1,10 @@
+[submodule "modules/ccpm"]
+	path = modules/ccpm
+	url = https://github.com/accepted-warnings/ccpm.git
+	branch = main
+	shallow = false
+[submodule "modules/github-project"]
+	path = modules/github-project
+	url = https://github.com/accepted-warnings/github-project-skill.git
+	branch = main
+	shallow = false

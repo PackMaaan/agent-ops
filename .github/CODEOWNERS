@@ -1,0 +1,18 @@
+# CODEOWNERS — automatic reviewer assignment.
+# The last matching pattern wins.
+
+* @PackMaaan
+
+# Supply-chain surface. A change here alters what code runs on every machine
+# that consumes Agent Ops, so it always wants an explicit look.
+/.gitmodules            @PackMaaan
+/modules/               @PackMaaan
+/registry/              @PackMaaan
+
+# Anything that can change how this repository is built, tested, or released.
+/.github/               @PackMaaan
+/.github/workflows/     @PackMaaan
+
+# Security policy.
+/SECURITY.md            @PackMaaan
+/NOTICE.md              @PackMaaan

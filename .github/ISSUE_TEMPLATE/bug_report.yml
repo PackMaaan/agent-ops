@@ -1,0 +1,67 @@
+name: Bug report
+description: Agent Ops behaves differently from what the docs say.
+title: "bug: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I ran `agent-ops doctor` and pasted the output below.
+          required: true
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`agent-ops doctor` output"
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: layout
+    attributes:
+      label: How is Agent Ops installed?
+      options:
+        - Git submodule inside a host repository (the intended layout)
+        - Standalone clone, driven with --target
+        - Copied skills (`install --copy`)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS and bash version
+      description: "Output of `uname -sm && bash --version | head -1`"
+    validations:
+      required: true

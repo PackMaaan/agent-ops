@@ -1,0 +1,43 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "Etc/UTC",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies", "automated"],
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "Group all GitHub Action digest bumps into one PR.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "commitMessagePrefix": "chore(deps):"
+    },
+    {
+      "description": "Submodule bumps are supply-chain events — never grouped, never auto-merged, always reviewed one at a time.",
+      "matchManagers": ["git-submodules"],
+      "groupName": null,
+      "automerge": false,
+      "commitMessagePrefix": "chore(modules):",
+      "labels": ["dependencies", "modules"],
+      "addLabels": ["needs-triage"]
+    },
+    {
+      "description": "Major bumps always get a human.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "addLabels": ["breaking-change"]
+    }
+  ],
+  "git-submodules": {
+    "enabled": true
+  },
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "schedule": ["at any time"]
+  },
+  "osvVulnerabilityAlerts": true
+}

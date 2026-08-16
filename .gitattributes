@@ -1,0 +1,19 @@
+# Normalise line endings so shell scripts stay executable on every platform.
+* text=auto eol=lf
+
+*.sh      text eol=lf
+*.bash    text eol=lf
+bin/*     text eol=lf
+*.md      text eol=lf
+*.json    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+
+*.png     binary
+*.webp    binary
+*.jpg     binary
+*.ico     binary
+
+# Keep generated/vendored content out of language statistics and diffs.
+modules/**    linguist-vendored
+*.template    linguist-language=Text

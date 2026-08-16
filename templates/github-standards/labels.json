@@ -1,0 +1,21 @@
+[
+  { "name": "bug",             "color": "d73a4a", "description": "Behaviour differs from documented or intended behaviour" },
+  { "name": "enhancement",     "color": "a2eeef", "description": "New capability or improvement to an existing one" },
+  { "name": "documentation",   "color": "0075ca", "description": "Documentation only" },
+  { "name": "security",        "color": "b60205", "description": "Security impact — triage first" },
+  { "name": "breaking-change", "color": "b60205", "description": "Requires a major version bump" },
+  { "name": "chore",           "color": "cfd3d7", "description": "Housekeeping with no user-visible change" },
+  { "name": "refactor",        "color": "cfd3d7", "description": "Internal restructuring, behaviour preserved" },
+  { "name": "ci",              "color": "cfd3d7", "description": "Build, CI, or release tooling" },
+  { "name": "dependencies",    "color": "0366d6", "description": "Dependency updates" },
+  { "name": "automated",       "color": "ededed", "description": "Opened by a bot" },
+  { "name": "needs-triage",    "color": "fbca04", "description": "Awaiting maintainer triage" },
+  { "name": "blocked",         "color": "e11d21", "description": "Cannot proceed until something else lands" },
+  { "name": "good first issue","color": "7057ff", "description": "Well-scoped entry point for new contributors" },
+  { "name": "help wanted",     "color": "008672", "description": "Maintainers would welcome a contribution here" },
+  { "name": "skip-changelog",  "color": "ededed", "description": "Excluded from generated release notes" },
+  { "name": "epic",            "color": "3e4b9e", "description": "CCPM epic — parent of a task tree" },
+  { "name": "task",            "color": "5319e7", "description": "CCPM task — child of an epic" },
+  { "name": "parallel",        "color": "1d76db", "description": "Safe to execute concurrently with sibling tasks" },
+  { "name": "agent-ops",       "color": "0e8a16", "description": "Agent Ops tooling, modules, or bootstrap" }
+]

@@ -1,0 +1,60 @@
+{
+  "$schema": "./schema/modules.schema.json",
+  "registryVersion": 1,
+  "modules": [
+    {
+      "id": "agent-ops",
+      "name": "Agent Ops",
+      "summary": "Composition layer: bootstrap, module registry, and the routing meta-skill.",
+      "kind": "builtin",
+      "path": ".",
+      "enabled": true,
+      "license": "MIT",
+      "capabilities": ["orchestration", "bootstrap", "module-registry"],
+      "skills": [
+        {
+          "name": "agent-ops",
+          "source": "skills/agent-ops"
+        }
+      ]
+    },
+    {
+      "id": "ccpm",
+      "name": "CCPM — Project Manager Agent",
+      "summary": "Spec-driven delivery: PRD to epic to GitHub issues to parallel agents.",
+      "kind": "submodule",
+      "path": "modules/ccpm",
+      "url": "https://github.com/accepted-warnings/ccpm.git",
+      "branch": "main",
+      "upstream": "https://github.com/automazeio/ccpm",
+      "enabled": true,
+      "license": "MIT",
+      "capabilities": ["planning", "delivery-lifecycle", "github-issues", "parallel-agents", "standups"],
+      "skills": [
+        {
+          "name": "ccpm",
+          "source": "skill/ccpm"
+        }
+      ]
+    },
+    {
+      "id": "github-project",
+      "name": "GitHub Project Skill",
+      "summary": "GitHub platform standards: branch protection, rulesets, auto-merge, sub-issues.",
+      "kind": "submodule",
+      "path": "modules/github-project",
+      "url": "https://github.com/accepted-warnings/github-project-skill.git",
+      "branch": "main",
+      "upstream": "https://github.com/netresearch/github-project-skill",
+      "enabled": true,
+      "license": "MIT AND CC-BY-SA-4.0",
+      "capabilities": ["repo-standards", "branch-protection", "rulesets", "auto-merge", "sub-issues", "codeowners"],
+      "skills": [
+        {
+          "name": "github-project",
+          "source": "skills/github-project"
+        }
+      ]
+    }
+  ]
+}

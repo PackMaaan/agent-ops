@@ -1,0 +1,24 @@
+# --- Agent Ops -------------------------------------------------------------
+# Local, machine-specific overrides for the module registry and installer.
+/registry/modules.local.json
+/.agent-ops-state
+
+# --- Editors / OS ----------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# --- Tooling ---------------------------------------------------------------
+node_modules/
+.venv/
+__pycache__/
+*.log
+/tmp/
+/.tmp/
+
+# --- Agent harness scratch -------------------------------------------------
+.claude/settings.local.json

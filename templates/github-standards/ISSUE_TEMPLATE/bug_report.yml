@@ -1,0 +1,75 @@
+name: Bug report
+description: Something behaves differently from what the docs or code promise.
+title: "bug: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file this. A reproducible report is worth
+        far more than a detailed description of symptoms — please fill in the
+        reproduction steps even if they feel obvious.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I am on the latest released version, or I have stated my version below.
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The actual behaviour, including any error output.
+      placeholder: |
+        Running `foo build` exits 1 with "cannot resolve module".
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: The behaviour the documentation or the code implies.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: |
+        The smallest sequence that triggers the bug. A link to a minimal
+        repository is ideal.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Version, OS, and anything else that might matter.
+      value: |
+        - {{PROJECT}} version:
+        - OS / arch:
+        - Runtime version:
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste output here. It is automatically formatted as code.
+      render: shell
+    validations:
+      required: false

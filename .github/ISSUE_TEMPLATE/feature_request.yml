@@ -1,0 +1,48 @@
+name: Feature request
+description: Propose a capability Agent Ops does not have yet.
+title: "feat: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Proposing a new **module** (a skill to add to the registry)? Use the
+        module proposal form instead.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you unable to do today, and what does that cost you?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Sketch the command or interface if you have one in mind.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Installer (install / uninstall)
+        - Bootstrap (GitHub standards)
+        - Module registry and CLI
+        - The agent-ops skill itself
+        - Documentation
+        - CI / release tooling
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a pull request for this.
+          required: false

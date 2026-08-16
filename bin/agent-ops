@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+#
+# agent-ops — one entry point for every Agent Ops operation.
+#
+# Safe to symlink onto PATH; the library resolves its own repository root
+# through symlinks.
+
+set -euo pipefail
+
+_self="${BASH_SOURCE[0]}"
+while [ -L "$_self" ]; do
+  _dir=$(cd -P "$(dirname "$_self")" >/dev/null 2>&1 && pwd)
+  _self=$(readlink "$_self")
+  case "$_self" in /*) ;; *) _self="$_dir/$_self" ;; esac
+done
+AO_ROOT=$(cd -P "$(dirname "$_self")/.." >/dev/null 2>&1 && pwd)
+export AO_ROOT
+
+# shellcheck source=scripts/lib/common.sh
+. "$AO_ROOT/scripts/lib/common.sh"
+
+usage() {
+  cat <<'EOF'
+agent-ops — composable agent skills and GitHub standards for any repository.
+
+USAGE
+  agent-ops <command> [options]
+
+COMMANDS
+  install            Link every enabled module skill into the host repository
+  uninstall          Remove the skills and managed blocks Agent Ops created
+  bootstrap          Apply world-class GitHub standards to the host repository
+  doctor             Diagnose the environment, registry, and installed state
+
+  module list        Show the module registry
+  module add         Register a new capability module as a git submodule
+  module remove      Deregister a module and drop its submodule
+  module sync        Update every submodule to the tip of its pinned branch
+
+  version            Print the Agent Ops version
+  help               Show this message
+
+Run `agent-ops <command> --help` for command-specific options.
+
+DOCS
+  docs/INSTALL.md        installing into a host repository
+  docs/MODULES.md        adding your own feature modules
+  docs/ARCHITECTURE.md   how the pieces fit together
+EOF
+}
+
+cmd="${1:-help}"
+[ $# -gt 0 ] && shift
+
+case "$cmd" in
+  install)    exec "$AO_ROOT/scripts/install.sh" "$@" ;;
+  uninstall)  exec "$AO_ROOT/scripts/uninstall.sh" "$@" ;;
+  bootstrap)  exec "$AO_ROOT/scripts/bootstrap-repo.sh" "$@" ;;
+  doctor)     exec "$AO_ROOT/scripts/doctor.sh" "$@" ;;
+  module)
+    sub="${1:-list}"
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      list)   exec "$AO_ROOT/scripts/module-list.sh" "$@" ;;
+      add)    exec "$AO_ROOT/scripts/module-add.sh" "$@" ;;
+      remove) exec "$AO_ROOT/scripts/module-remove.sh" "$@" ;;
+      sync)   exec "$AO_ROOT/scripts/module-sync.sh" "$@" ;;
+      -h|--help|help) usage; exit 0 ;;
+      *) die "unknown 'module' subcommand: $sub (try: list, add, remove, sync)" ;;
+    esac
+    ;;
+  version|--version|-V) printf 'agent-ops %s\n' "$AGENT_OPS_VERSION" ;;
+  help|--help|-h) usage ;;
+  *) usage >&2; die "unknown command: $cmd" ;;
+esac

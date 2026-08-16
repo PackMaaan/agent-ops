@@ -1,0 +1,60 @@
+name: Module proposal
+description: Propose a new capability module for the registry.
+title: "module: "
+labels: ["enhancement", "modules", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Agent Ops grows by adding pinned submodules. A module needs to be a git
+        repository containing at least one `SKILL.md` with valid Agent Skills
+        frontmatter — see [`docs/MODULES.md`](../../docs/MODULES.md).
+
+  - type: input
+    id: repo
+    attributes:
+      label: Module repository
+      placeholder: https://github.com/owner/name
+    validations:
+      required: true
+
+  - type: input
+    id: license
+    attributes:
+      label: License
+      description: SPDX expression, e.g. MIT or "MIT AND CC-BY-SA-4.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: capability
+    attributes:
+      label: What capability does it add?
+      description: Be specific about what it covers that ccpm and github-project do not.
+    validations:
+      required: true
+
+  - type: textarea
+    id: overlap
+    attributes:
+      label: Overlap with existing modules
+      description: |
+        Where might an agent route ambiguously between this module and an
+        existing one? Routing collisions are the main reason a proposal is
+        declined.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contract
+    attributes:
+      label: Module contract
+      options:
+        - label: It is a git repository with a stable branch to track.
+          required: true
+        - label: It contains at least one directory with a `SKILL.md`.
+          required: true
+        - label: Its `description` frontmatter is specific enough to route on without reading the body.
+          required: true
+        - label: Its license is compatible with redistribution as a pinned submodule.
+          required: true

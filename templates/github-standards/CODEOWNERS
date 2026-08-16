@@ -1,0 +1,23 @@
+# CODEOWNERS — automatic reviewer assignment.
+# The LAST matching pattern wins, so order matters: general rules first,
+# specific overrides last.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything not matched below.
+*                       @{{ORG}}
+
+# Anything that can change how code is built, tested, or shipped.
+/.github/               @{{ORG}}
+/.github/workflows/     @{{ORG}}
+
+# Supply-chain surface: submodule pointers and the module registry.
+/.gitmodules            @{{ORG}}
+/registry/              @{{ORG}}
+
+# Security-relevant policy files.
+/SECURITY.md            @{{ORG}}
+/CODE_OF_CONDUCT.md     @{{ORG}}
+
+# Replace the individual owners above with teams once one exists, e.g.
+#   *                   @{{ORG}}/maintainers
+#   /.github/workflows/ @{{ORG}}/platform

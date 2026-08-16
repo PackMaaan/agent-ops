@@ -1,0 +1,59 @@
+name: Auto-merge dependency PRs
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  auto-merge:
+    name: approve and enable auto-merge
+    runs-on: ubuntu-latest
+    if: >-
+      github.actor == 'dependabot[bot]' ||
+      github.actor == 'renovate[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Major bumps stay manual. Everything else is approved and queued behind
+      # branch protection, so CI still has to pass before anything lands.
+      - name: Fetch update metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if printf '%s' "$PR_TITLE" | grep -qiE '\bmajor\b'; then
+            printf 'major=true\n' >>"$GITHUB_OUTPUT"
+          else
+            printf 'major=false\n' >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Approve
+        if: steps.meta.outputs.major == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr review --approve "$PR_URL"
+
+      - name: Enable auto-merge
+        if: steps.meta.outputs.major == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        # --merge matches the repository's merge-commit-only setting. If you
+        # switch the repo to squash or rebase, change this flag too — a
+        # mismatch is the most common cause of silently stuck auto-merge.
+        run: gh pr merge --auto --merge "$PR_URL"
+
+      - name: Explain why a major bump was left alone
+        if: steps.meta.outputs.major == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr comment "$PR_URL" --body \
+            'Major version bump — auto-merge is intentionally not enabled. A human needs to read the changelog.'

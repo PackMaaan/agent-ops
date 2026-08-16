@@ -1,0 +1,30 @@
+{
+  "name": "agent-ops",
+  "version": "0.1.0",
+  "description": "Composable agent skills and world-class GitHub standards, installable into any repository as a submodule",
+  "author": {
+    "name": "PackMaaan",
+    "url": "https://github.com/PackMaaan"
+  },
+  "homepage": "https://github.com/PackMaaan/agent-ops",
+  "repository": "https://github.com/PackMaaan/agent-ops",
+  "license": "MIT",
+  "keywords": [
+    "agent-skills",
+    "github",
+    "project-management",
+    "branch-protection",
+    "ccpm",
+    "submodule",
+    "scaffold"
+  ],
+  "support": {
+    "issues": "https://github.com/PackMaaan/agent-ops/issues",
+    "source": "https://github.com/PackMaaan/agent-ops"
+  },
+  "skills": [
+    "./skills/agent-ops",
+    "./modules/ccpm/skill/ccpm",
+    "./modules/github-project/skills/github-project"
+  ]
+}
