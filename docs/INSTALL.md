@@ -152,11 +152,22 @@ which skills are linked into the host.
 Exit code 0 means healthy; warnings (missing optional tooling, no origin remote)
 do not fail it.
 
-For the GitHub side, the `github-project` module ships its own audit:
+For the GitHub side, check the API directly — the `github-project` module ships
+a `verify-github-project.sh`, but it currently exits after its first check due to
+an upstream `set -e` bug:
 
 ```bash
-bash .agent-ops/modules/github-project/skills/github-project/scripts/verify-github-project.sh .
+gh api repos/OWNER/REPO --jq '{allow_merge_commit, allow_squash_merge,
+  allow_rebase_merge, delete_branch_on_merge, allow_auto_merge, has_discussions}'
+
+gh api repos/OWNER/REPO/branches/main/protection --jq '{
+  checks: .required_status_checks.contexts,
+  approvals: .required_pull_request_reviews.required_approving_review_count,
+  conversation: .required_conversation_resolution.enabled}'
 ```
+
+The full list is in the `agent-ops` skill's
+[`references/troubleshooting.md`](../skills/agent-ops/references/troubleshooting.md).
 
 ---
 

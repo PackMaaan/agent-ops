@@ -387,8 +387,14 @@ Next:
   1. Review and commit the generated files:
        git -C "$HOST" status
   2. Fill in any {{PLACEHOLDER}} values reported above.
-  3. After the first CI run, pin required status checks:
+  3. After the first CI run, pin the required status checks to the names your
+     workflows actually produce (guessing them is what strands PRs):
        bash $GP_SCRIPTS/init-branch-protection.sh $SLUG --from-current-checks
-  4. Verify the whole setup:
-       bash $GP_SCRIPTS/verify-github-project.sh "$HOST"
+     Requires bash 4+; on macOS use /opt/homebrew/bin/bash. Only pin checks
+     that run on pull_request — a check that never runs blocks every PR.
+  4. Verify:
+       $(ao_relpath "$AO_ROOT" "$HOST")/bin/agent-ops doctor
+     The module's verify-github-project.sh currently exits after its first
+     check (upstream set -e bug); see the agent-ops skill's
+     references/troubleshooting.md for direct gh api checks instead.
 EOF

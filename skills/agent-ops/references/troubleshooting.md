@@ -157,11 +157,14 @@ changelog.
 
 ---
 
-## Branch protection scripts fail on macOS
+## Known defects in the github-project module's scripts
 
-**`mapfile: command not found`** from the `github-project` module's scripts.
-`mapfile` is bash 4+, and macOS ships bash 3.2. The module is upstream's code —
-do not edit it. Run it under a newer bash instead:
+These are upstream's code. **Do not edit anything under `modules/`** — fix them
+upstream and re-pin, or work around them as below.
+
+### `mapfile: command not found`
+
+`mapfile` is bash 4+; macOS ships bash 3.2. Run the script under a newer bash:
 
 ```bash
 brew install bash
@@ -169,7 +172,43 @@ brew install bash
   OWNER/REPO --from-current-checks
 ```
 
-Agent Ops' own scripts are written against bash 3.2 and do not need this.
+Agent Ops' own scripts target bash 3.2 and need none of this.
+
+### `verify-github-project.sh` stops after the first check
+
+It prints "README.md exists" immediately followed by "README.md missing", then
+exits. The cause is `set -e` combined with `((PASSED++))`: post-increment
+evaluates to the *old* value, so when the counter is 0 the arithmetic command
+returns exit status 1. That makes `pass()` look like a failure — the `||`
+branch fires — and then `fail()` does the same thing and terminates the script.
+It reproduces on every platform, not just macOS.
+
+Until it is fixed upstream, verify the GitHub side directly:
+
+```bash
+# Files bootstrap should have created
+ls SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md \
+   .github/CODEOWNERS .github/dependabot.yml .github/release.yml \
+   .github/PULL_REQUEST_TEMPLATE.md .github/ISSUE_TEMPLATE/
+
+# Repository settings
+gh api repos/OWNER/REPO --jq '{allow_merge_commit, allow_squash_merge,
+  allow_rebase_merge, delete_branch_on_merge, allow_auto_merge,
+  allow_update_branch, has_issues, has_discussions}'
+
+# Branch protection
+gh api repos/OWNER/REPO/branches/main/protection --jq '{
+  checks: .required_status_checks.contexts,
+  approvals: .required_pull_request_reviews.required_approving_review_count,
+  conversation: .required_conversation_resolution.enabled,
+  force_push: .allow_force_pushes.enabled}'
+
+# Actions may approve PRs (required for dependency auto-merge)
+gh api repos/OWNER/REPO/actions/permissions/workflow
+```
+
+`init-branch-protection.sh` itself is sound — its second run reports drift
+rather than clobbering, which is the behaviour Agent Ops delegates to.
 
 ---
 

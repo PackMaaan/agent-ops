@@ -79,9 +79,13 @@ gh repo create my-project --public --source=. --remote=origin --push
 .agent-ops/bin/agent-ops bootstrap --remote-only
 
 # 7. After the first CI run completes, pin the required status checks
+# bash 4+ required; on macOS: /opt/homebrew/bin/bash
 bash .agent-ops/modules/github-project/skills/github-project/scripts/init-branch-protection.sh \
   OWNER/REPO --from-current-checks
 ```
+
+Pin **only checks that run on `pull_request`**. A required check that never runs
+on PRs — a scheduled Scorecard job, say — blocks every PR permanently.
 
 Step 7 is separate on purpose: required status check names must match what the
 workflows actually produce, and that is unknowable until a run exists. Pinning
@@ -176,9 +180,9 @@ agent-ops bootstrap --files-only --force
 
 ```bash
 .agent-ops/bin/agent-ops doctor
-bash .agent-ops/modules/github-project/skills/github-project/scripts/verify-github-project.sh .
 ```
 
-The second script is the module's own audit: documentation files, CODEOWNERS,
-dependency management, issue and PR templates, auto-merge workflow, release
-configuration.
+For the GitHub side, query the API directly. The module ships a
+`verify-github-project.sh`, but it exits after its first check because of an
+upstream `set -e` / `((PASSED++))` bug — see `troubleshooting.md` for the
+diagnosis and the replacement checks.
