@@ -296,24 +296,27 @@ if [ "$DO_REMOTE" -eq 1 ]; then
   elif ! gh auth status >/dev/null 2>&1; then
     warn "gh not authenticated — run 'gh auth login'"
   else
+    # `gh repo edit` toggles booleans with --enable-X=false. There is no
+    # --disable-X form; passing one aborts the whole command with "unknown flag"
+    # and leaves every other setting unapplied.
     case "$MERGE_STRATEGY" in
-      merge)  merge_flags=(--enable-merge-commit --disable-squash-merge --disable-rebase-merge) ;;
-      squash) merge_flags=(--disable-merge-commit --enable-squash-merge --disable-rebase-merge) ;;
-      rebase) merge_flags=(--disable-merge-commit --disable-squash-merge --enable-rebase-merge) ;;
+      merge)  merge_flags=(--enable-merge-commit --enable-squash-merge=false --enable-rebase-merge=false) ;;
+      squash) merge_flags=(--enable-merge-commit=false --enable-squash-merge --enable-rebase-merge=false) ;;
+      rebase) merge_flags=(--enable-merge-commit=false --enable-squash-merge=false --enable-rebase-merge) ;;
     esac
 
     if [ "$DRY_RUN" -eq 1 ]; then
       would "gh repo edit $SLUG ${merge_flags[*]} --delete-branch-on-merge --enable-auto-merge"
     else
-      if gh repo edit "$SLUG" \
+      edit_err=$(gh repo edit "$SLUG" \
           "${merge_flags[@]}" \
           --delete-branch-on-merge \
           --enable-auto-merge \
-          --enable-issues \
-          --enable-projects >/dev/null 2>&1; then
+          --enable-issues 2>&1) && edit_rc=0 || edit_rc=$?
+      if [ "$edit_rc" -eq 0 ]; then
         ok "repository settings applied ($MERGE_STRATEGY strategy, auto-merge on, delete-on-merge on)"
       else
-        warn "gh repo edit failed — check admin permissions on $SLUG"
+        warn "gh repo edit failed — $(printf '%s' "$edit_err" | head -1)"
       fi
 
       if gh api "repos/$SLUG" --method PATCH -F allow_update_branch=true >/dev/null 2>&1; then
