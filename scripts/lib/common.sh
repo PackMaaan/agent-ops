@@ -225,27 +225,37 @@ AO_BLOCK_END="<!-- END agent-ops (managed) -->"
 
 # Replace (or append) the managed block in $1 with the content on stdin.
 # Everything outside the markers is preserved byte for byte.
+#
+# The body goes through a file rather than `awk -v body="$body"`: BSD awk (which
+# is what macOS ships) rejects a newline inside a -v assignment with "newline in
+# string" and aborts. Only the single-line markers are passed as variables.
 ao_write_managed_block() {
-  local file="$1" body tmp
-  body=$(cat)
+  local file="$1" tmp body_file
+  body_file="${file}.agent-ops.body"
   tmp="${file}.agent-ops.tmp"
+  cat >"$body_file"
 
   if [ -f "$file" ] && grep -qF "$AO_BLOCK_BEGIN" "$file"; then
-    awk -v begin="$AO_BLOCK_BEGIN" -v end="$AO_BLOCK_END" -v body="$body" '
-      index($0, begin) { print begin; print body; print end; skipping = 1; next }
-      index($0, end)   { skipping = 0; next }
-      !skipping        { print }
-    ' "$file" >"$tmp"
+    {
+      awk -v begin="$AO_BLOCK_BEGIN" 'index($0, begin) { exit } { print }' "$file"
+      printf '%s\n' "$AO_BLOCK_BEGIN"
+      cat "$body_file"
+      printf '%s\n' "$AO_BLOCK_END"
+      awk -v end="$AO_BLOCK_END" 'seen { print } index($0, end) { seen = 1 }' "$file"
+    } >"$tmp"
   else
     {
       if [ -f "$file" ] && [ -s "$file" ]; then
         cat "$file"
         printf '\n'
       fi
-      printf '%s\n%s\n%s\n' "$AO_BLOCK_BEGIN" "$body" "$AO_BLOCK_END"
+      printf '%s\n' "$AO_BLOCK_BEGIN"
+      cat "$body_file"
+      printf '%s\n' "$AO_BLOCK_END"
     } >"$tmp"
   fi
 
+  rm -f "$body_file"
   mv "$tmp" "$file"
 }
 

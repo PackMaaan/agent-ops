@@ -519,6 +519,10 @@ info "bootstrap complete"
 cat >&2 <<EOF
 
 Next:
+  0. Re-run install so the module block reaches any instruction file this run
+     created (notably .github/copilot-instructions.md, which cannot be written
+     before .github/ exists):
+       $(ao_relpath "$AO_ROOT" "$HOST")/bin/agent-ops install
   1. Review and commit the generated files:
        git -C "$HOST" status
   2. Fill in any {{PLACEHOLDER}} values reported above.

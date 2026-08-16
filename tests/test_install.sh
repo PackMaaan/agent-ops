@@ -89,6 +89,31 @@ it "second install does not duplicate the managed block"
 count=$(grep -c "BEGIN agent-ops (managed)" "$HOST/AGENTS.md")
 assert_eq "$count" "1"
 
+# Counting markers cannot tell "rewritten correctly" apart from "not rewritten
+# at all" — which is exactly how a broken rewrite hid on macOS, where BSD awk
+# rejects a multi-line -v assignment. Mutate the block, then assert it is
+# actually regenerated.
+it "the managed block content is regenerated, not just left alone"
+{ printf 'SENTINEL-BEFORE\n'; cat "$HOST/AGENTS.md"; printf 'SENTINEL-AFTER\n'; } >"$HOST/AGENTS.tmp"
+mv "$HOST/AGENTS.tmp" "$HOST/AGENTS.md"
+python3 - "$HOST/AGENTS.md" <<'PY'
+import re, sys, pathlib
+p = pathlib.Path(sys.argv[1]); s = p.read_text()
+s = re.sub(r"(?s)(BEGIN agent-ops \(managed\) -->\n).*?(<!-- END)", r"\1STALE-BLOCK-CONTENT\n\2", s)
+p.write_text(s)
+PY
+"$AO" install --target "$HOST" >/dev/null 2>&1
+assert_not_contains "$HOST/AGENTS.md" "STALE-BLOCK-CONTENT"
+
+it "the regenerated block lists the skills again"
+assert_contains "$HOST/AGENTS.md" "Agent Ops modules"
+
+it "rewriting the block preserves content before it"
+assert_contains "$HOST/AGENTS.md" "SENTINEL-BEFORE"
+
+it "rewriting the block preserves content after it"
+assert_contains "$HOST/AGENTS.md" "SENTINEL-AFTER"
+
 it "second install does not duplicate the exclude entry"
 count=$(grep -cxF ".claude/skills/ccpm" "$HOST/.git/info/exclude")
 assert_eq "$count" "1"

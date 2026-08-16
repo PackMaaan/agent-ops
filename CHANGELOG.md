@@ -63,6 +63,19 @@ so it is requested explicitly or not installed.
 - CI now lints the workflow templates with actionlint by staging them where it
   looks, and asserts the guardrail's behaviour on 31 cases.
 
+### Fixed
+
+- **Rewriting a managed block silently did nothing on macOS.** The block was
+  passed to `awk -v body="$body"`, and BSD awk — which is what macOS ships —
+  rejects a newline inside a `-v` assignment with "newline in string" and
+  aborts. The first install worked (it appends); every later one left a stale
+  block behind. The body now goes through a file, and only the single-line
+  markers are passed as variables.
+- The test that should have caught it counted `BEGIN` markers, which stays
+  correct when nothing is rewritten at all. It now mutates the block and asserts
+  it is regenerated, with sentinels either side proving the surrounding content
+  survives.
+
 ### Changed
 
 - `troubleshooting.md` now names the **mechanism** behind Dependabot PRs never
