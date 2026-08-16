@@ -341,6 +341,18 @@ if [ "$DO_REMOTE" -eq 1 ]; then
       else
         skip "could not enable Dependabot alerts"
       fi
+
+      # Without this, GITHUB_TOKEN cannot approve a PR, so an auto-merge
+      # workflow fails with "GitHub Actions is not permitted to approve pull
+      # requests" and dependency PRs sit forever against the required-approvals
+      # rule. Workflow permissions stay read-only; only the approval bit moves.
+      if gh api "repos/$SLUG/actions/permissions/workflow" --method PUT \
+          -f default_workflow_permissions=read \
+          -F can_approve_pull_request_reviews=true >/dev/null 2>&1; then
+        ok "GitHub Actions may approve PRs (required for dependency auto-merge)"
+      else
+        warn "could not allow Actions to approve PRs — dependency auto-merge will stall on the approval rule"
+      fi
     fi
 
     # Branch protection is delegated to the github-project module, which owns

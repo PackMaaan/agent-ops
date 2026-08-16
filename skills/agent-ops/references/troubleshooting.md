@@ -136,6 +136,43 @@ with `gh api repos/OWNER/REPO --jq .permissions`.
 
 ---
 
+## Dependency PRs never merge
+
+**"GitHub Actions is not permitted to approve pull requests."** The repository
+requires an approving review, and `GITHUB_TOKEN` is not allowed to give one, so
+every Dependabot and Renovate PR stalls. `agent-ops bootstrap --remote-only`
+sets this; to fix it by hand:
+
+```bash
+gh api repos/OWNER/REPO/actions/permissions/workflow --method PUT \
+  -f default_workflow_permissions=read \
+  -F can_approve_pull_request_reviews=true
+```
+
+Workflow permissions stay read-only — only the approval bit changes.
+
+**Major version bumps.** These are intentionally left for a human, and the
+workflow comments on the PR saying so. Merge them yourself after reading the
+changelog.
+
+---
+
+## Branch protection scripts fail on macOS
+
+**`mapfile: command not found`** from the `github-project` module's scripts.
+`mapfile` is bash 4+, and macOS ships bash 3.2. The module is upstream's code —
+do not edit it. Run it under a newer bash instead:
+
+```bash
+brew install bash
+/opt/homebrew/bin/bash modules/github-project/skills/github-project/scripts/init-branch-protection.sh \
+  OWNER/REPO --from-current-checks
+```
+
+Agent Ops' own scripts are written against bash 3.2 and do not need this.
+
+---
+
 ## PRs cannot merge after bootstrap
 
 Branch protection is now enforcing what was previously advisory. The three usual
