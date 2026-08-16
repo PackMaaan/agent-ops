@@ -71,3 +71,5 @@ merely redistributes.
 gives up reproducibility (nothing pins what was fetched), requires network
 access at install, and makes the supply chain invisible to `git log` and to
 Dependabot.
+
+<!-- ci trigger probe -->
