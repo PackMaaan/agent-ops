@@ -155,6 +155,37 @@ Workflow permissions stay read-only — only the approval bit changes.
 workflow comments on the PR saying so. Merge them yourself after reading the
 changelog.
 
+**Required checks never appear on the bot's PR.** Observed on a fresh repository:
+`pull_request_target` workflows ran on the Dependabot branch, but no
+`pull_request` run was ever *created* — not queued, not blocked, absent. The
+same workflows fire normally on a human-authored PR from a branch in the same
+repository, so the workflow configuration is not the problem. Closing and
+reopening the PR did not produce one either.
+
+The consequence is concrete: if branch protection requires status checks, a
+Dependabot PR can never satisfy them and will sit indefinitely. Pick one:
+
+- **Merge bot PRs with an admin bypass** after reviewing the diff. Workable for
+  a solo maintainer, and what this repository does. Keep `enforce_admins: false`
+  or the bypass is unavailable to you too.
+- **Rebase the bot's branch yourself.** Pushing to it as a human generates the
+  `pull_request` run, after which the normal flow completes.
+- **Apply the bump by hand on a branch you own.** Necessary anyway when the
+  bot's branch predates commits you do not want reverted — a bot PR is a diff
+  against the base it was cut from, so merging a stale one silently undoes
+  anything you changed in the same files since.
+
+Verify a bot PR before merging it without CI:
+
+```bash
+git fetch origin refs/pull/<N>/head:pr-<N> && git checkout pr-<N>
+actionlint && bash tests/run.sh
+# and confirm every new pin actually exists upstream
+grep -rhoE 'uses: [^ ]+@[a-f0-9]{40}' .github/workflows/ | sed 's/uses: //' | sort -u |
+  while read -r s; do gh api "repos/${s%@*}/commits/${s#*@}" --jq .sha >/dev/null &&
+    echo "ok $s" || echo "FAIL $s"; done
+```
+
 ---
 
 ## Known defects in the github-project module's scripts
