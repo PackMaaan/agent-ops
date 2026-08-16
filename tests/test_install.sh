@@ -202,8 +202,12 @@ else
     it "AGENTS.md was written into the superproject, not the submodule"
     assert_file "$SUB_HOST/AGENTS.md"
 
-    it "the submodule itself was left clean"
-    assert_no_file "$SUB_HOST/.agent-ops/AGENTS.md"
+    # Agent Ops ships its own AGENTS.md, so "did install target the
+    # superproject and not itself?" is answered by the submodule working tree
+    # still being pristine — not by grepping for a marker the file documents.
+    it "the submodule working tree is untouched by install"
+    dirty=$(git -C "$SUB_HOST/.agent-ops" status --porcelain | grep -c . || true)
+    assert_eq "$dirty" "0"
   else
     printf '  %s·%s skipped — could not add the local submodule\n' "$T_DIM" "$T_RESET"
   fi
